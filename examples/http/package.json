@@ -1,0 +1,31 @@
+{
+  "name": "http-example",
+  "version": "0.0.1",
+  "description": "Example of HTTP integration with OpenTelemetry",
+  "main": "index.js",
+  "scripts": {
+    "start": "node ./index.js",
+    "test": "node ./index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/open-telemetry/opentelemetry-js.git"
+  },
+  "keywords": [
+    "opentelemetry",
+    "http",
+    "tracing"
+  ],
+  "author": "OpenTelemetry Authors",
+  "license": "Apache-2.0",
+  "bugs": {
+    "url": "https://github.com/open-telemetry/opentelemetry-js/issues"
+  },
+  "dependencies": {
+    "@opentelemetry/exporter-jaeger": "^0.0.1",
+    "@opencensus/nodejs": "^0.0.17",
+    "@opencensus/propagation-tracecontext": "^0.0.17",
+    "http": "*"
+  },
+  "homepage": "https://github.com/open-telemetry/opentelemetry-js#readme"
+}
