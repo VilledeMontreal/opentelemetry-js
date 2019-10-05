@@ -41,11 +41,8 @@ function handleRequest (request, response) {
     request.on('error', err => console.log(err));
     request.on('data', chunk => body.push(chunk));
     request.on('end', () => {
-      // deliberately sleeping to mock some action.
-      setTimeout(() => {
-        span.end();
-        response.end('Hello World!');
-      }, 2000);
+      span.end();
+      response.end('Hello World!');
     });
   } catch (err) {
     console.log(err);

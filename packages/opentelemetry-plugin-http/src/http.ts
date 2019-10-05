@@ -202,80 +202,90 @@ export class HttpPlugin extends BasePlugin<Http> {
       if (userAgent !== undefined) {
         span.setAttribute(AttributeNames.HTTP_USER_AGENT, userAgent);
       }
+
+
       // In case of req.abort() is called after receiving response,
       // req.on('close') is called before res.on('end')
       let reqShouldCloseSpan: boolean = true;
-      request.on(
-        'response',
-        (
-          response: IncomingMessage & { aborted?: boolean; req: ClientRequest }
-        ) => {
-          if (response.statusCode) {
-            span.setAttributes({
-              [AttributeNames.HTTP_STATUS_CODE]: response.statusCode,
-              [AttributeNames.HTTP_STATUS_TEXT]: response.statusMessage,
+      const emit = request.emit;
+      const plugin = this;
+      //@ts-ignore
+      request.emit = function (eventName: string, arg: IncomingMessage & { aborted?: boolean; req: ClientRequest }) {
+        switch (eventName) {
+          case 'response': {
+            const response = arg;
+            if (response.statusCode) {
+              span.setAttributes({
+                [AttributeNames.HTTP_STATUS_CODE]: response.statusCode,
+                [AttributeNames.HTTP_STATUS_TEXT]: response.statusMessage,
+              });
+            }
+            // Check if we have the original ClientRequest
+            // Otherwise it's a package that has a custom implementation
+            // custom implementation means that listeners func is not reliable (e.g superagent, request ...) provides their own way.
+            // and we can't avoid to listen to 'end' event even no 'data'/'readable' event is attached
+            if (response.req.constructor.name === 'ClientRequest') {
+              const dataFunc = response.listeners('data') as Function[];
+              const readablefunc = response.listeners('readable') as Function[];
+              // No need to listen to response events if one of these events is not attached
+              if (dataFunc.length === 0 && readablefunc.length === 0) {
+                return;
+              }
+            }
+  
+            // If data or readable event is attached, req.on('close') should not close the span
+            // because response.end will do even if req.abort() is called
+            reqShouldCloseSpan = false;
+            plugin._tracer.bind(response);
+            plugin._logger.debug('outgoingRequest on response()');
+            response.on('end', () => {
+              plugin._logger.debug('outgoingRequest on end()');
+              let status: Status;
+  
+              if (response.aborted && !response.complete) {
+                status = { code: CanonicalCode.ABORTED };
+              } else {
+                status = utils.parseResponseStatus(response.statusCode!);
+              }
+  
+              span.setStatus(status);
+  
+              if (plugin._config.applyCustomAttributesOnSpan) {
+                plugin._safeExecute(
+                  span,
+                  () =>
+                    plugin._config.applyCustomAttributesOnSpan!(
+                      span,
+                      request,
+                      response
+                    ),
+                  false
+                );
+              }
+  
+              plugin._closeHttpSpan(span);
             });
+            response.on('error', (error: Err) => {
+              utils.setSpanWithError(span, error, response);
+              plugin._closeHttpSpan(span);
+            });
+            break;
           }
-          // Check if we have the original ClientRequest
-          // Otherwise it's a package that has a custom implementation
-          // custom implementation means that listeners func is not reliable (e.g superagent, request ...) provides their own way.
-          // and we can't avoid to listen to 'end' event even no 'data'/'readable' event is attached
-          if (response.req.constructor.name === 'ClientRequest') {
-            const dataFunc = response.listeners('data') as Function[];
-            const readablefunc = response.listeners('readable') as Function[];
-            // No need to listen to response events if one of these events is not attached
-            if (dataFunc.length === 0 && readablefunc.length === 0) {
-              return;
+          case 'error':
+            utils.setSpanWithError(span, arg as any, request);
+            plugin._closeHttpSpan(span);
+            break;
+          case 'close':
+            if (reqShouldCloseSpan) {
+              plugin._closeHttpSpan(span);
             }
-          }
-
-          // If data or readable event is attached, req.on('close') should not close the span
-          // because response.end will do even if req.abort() is called
-          reqShouldCloseSpan = false;
-          this._tracer.bind(response);
-          this._logger.debug('outgoingRequest on response()');
-          response.on('end', () => {
-            this._logger.debug('outgoingRequest on end()');
-            let status: Status;
-
-            if (response.aborted && !response.complete) {
-              status = { code: CanonicalCode.ABORTED };
-            } else {
-              status = utils.parseResponseStatus(response.statusCode!);
-            }
-
-            span.setStatus(status);
-
-            if (this._config.applyCustomAttributesOnSpan) {
-              this._safeExecute(
-                span,
-                () =>
-                  this._config.applyCustomAttributesOnSpan!(
-                    span,
-                    request,
-                    response
-                  ),
-                false
-              );
-            }
-
-            this._closeHttpSpan(span);
-          });
-          response.on('error', (error: Err) => {
-            utils.setSpanWithError(span, error, response);
-            this._closeHttpSpan(span);
-          });
+            break;
+          default:
+            break;
         }
-      );
-      request.on('close', () => {
-        if (reqShouldCloseSpan) {
-          this._closeHttpSpan(span);
-        }
-      });
-      request.on('error', (error: Err) => {
-        utils.setSpanWithError(span, error, request);
-        this._closeHttpSpan(span);
-      });
+
+        return emit.apply(this, arguments as any);
+      }
 
       this._logger.debug('makeRequestTrace return request');
       return request;

@@ -8,7 +8,15 @@ const { ZipkinExporter } = require('@opentelemetry/exporter-zipkin');
 const EXPORTER = process.env.EXPORTER || '';
 
 function setupTracerAndExporters(service) {
-    const tracer = new NodeTracer();
+    const tracer = new NodeTracer({
+      plugins: {
+          http: {
+              enabled: true,
+              // if it can't find the module, put the absolute path (depending your config, since packages are not published)
+              path: '/Users/ualbe94/apps/villedemontreal/opentelemetry-js/examples/http/node_modules/@opentelemetry/plugin-http'
+          }
+      }
+  });
 
     let exporter;
     if (EXPORTER.toLowerCase().startsWith('z')) {
