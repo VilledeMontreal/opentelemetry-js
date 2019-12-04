@@ -1,6 +1,6 @@
 'use strict';
 
-const opentelemetry = require('@opentelemetry/core');
+import * as opentelemetry from '@opentelemetry/core';
 const config = require('./setup');
 /**
  * The trace instance needs to be initialized first, if you want to enable
@@ -12,11 +12,11 @@ const http = require('http');
 const tracer = opentelemetry.getTracer();
 
 /** Starts a HTTP server that receives requests on sample server port. */
-function startServer (port) {
+function startServer (port: number) {
   // Creates a server
   const server = http.createServer(handleRequest);
   // Starts the server
-  server.listen(port, err => {
+  server.listen(port, (err: Error) => {
     if (err) {
       throw err;
     }
@@ -25,21 +25,21 @@ function startServer (port) {
 }
 
 /** A function which handles requests and send response. */
-function handleRequest (request, response) {
+function handleRequest (request: any, response: any) {
   const currentSpan = tracer.getCurrentSpan();
   // display traceid in the terminal
-  console.log(`traceid: ${currentSpan.context().traceId}`);
+  if (currentSpan) console.log(`traceid: ${currentSpan.context().traceId}`);
   const span = tracer.startSpan('handleRequest', {
-    parent: currentSpan,
+    parent: currentSpan || undefined,
     kind: 1, // server
     attributes: { key:'value' }
   });
   // Annotate our span to capture metadata about the operation
   span.addEvent('invoking handleRequest');
   try {
-    let body = [];
-    request.on('error', err => console.log(err));
-    request.on('data', chunk => body.push(chunk));
+    let body: Buffer[] = [];
+    request.on('error', (err: Error) => console.log(err));
+    request.on('data', (chunk: any) => body.push(chunk));
     request.on('end', () => {
       // deliberately sleeping to mock some action.
       setTimeout(() => {

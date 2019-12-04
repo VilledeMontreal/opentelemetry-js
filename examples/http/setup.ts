@@ -7,7 +7,7 @@ const { JaegerExporter } = require('@opentelemetry/exporter-jaeger');
 const { ZipkinExporter } = require('@opentelemetry/exporter-zipkin');
 const EXPORTER = process.env.EXPORTER || '';
 
-function setupTracerAndExporters(service) {
+function setupTracerAndExporters(service: string) {
   const tracer = new NodeTracer();
 
   let exporter;

@@ -1,6 +1,6 @@
 'use strict';
 
-const opentelemetry = require('@opentelemetry/core');
+import * as opentelemetry from '@opentelemetry/core';
 const config = require('./setup');
 
 /**
@@ -23,9 +23,9 @@ function makeRequest() {
             host: 'localhost',
             port: 8080,
             path: '/helloworld'
-        }, (response) => {
-            let body = [];
-            response.on('data', chunk => body.push(chunk));
+        }, (response: any) => {
+            let body: Buffer[] = [];
+            response.on('data', (chunk: Buffer) => body.push(chunk));
             response.on('end', () => {
                 console.log(body.toString());
                 span.end();
